@@ -52,14 +52,11 @@ def _draw_fx_text(out, g, now):
 
 def draw_trail(out, trail, exh):
     n = len(trail)
+    color = GRAY if exh else (255, 255, 255)
     for i in range(1, n):
         if trail[i - 1] is None or trail[i] is None:
             continue
         k = i / n
-        color = (int(255 * (1 - k)), int(80 + 140 * k), 255)
-        if exh:
-            gv = int(90 + 60 * k)
-            color = (gv, gv, gv)
         cv2.line(out, trail[i - 1], trail[i], color, max(1, int(k * 12)), cv2.LINE_AA)
 
 
