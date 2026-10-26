@@ -5,7 +5,7 @@ import random
 import numpy as np
 
 from config import *
-from enemy import make_enemy
+from enemy import make_enemy, set_facing
 from vision import seg_dist
 
 
@@ -31,6 +31,8 @@ def new_game(w, h):
 
 
 def spend(g, amt, now):
+    if amt <= 0:            # biaya 0: jangan tunda regenerasi stamina
+        return
     g["stam"] = max(0.0, g["stam"] - amt)
     g["stam_t"] = now
 
@@ -81,6 +83,7 @@ def update_enemy(g, hand, now, w, h):
         e["wd"] = e["base_wd"]
         e["chain"] = False
         e["all_blocked"] = True
+        set_facing(e, now)
         e["state"], e["st"] = "windup", now
 
     elif st == "windup" and el >= e["wd"]:
@@ -95,6 +98,7 @@ def update_enemy(g, hand, now, w, h):
             e["all_blocked"] = False
             g["hp"] -= ENEMY_DMG
             g["flash"] = now
+            emit(g, "takedamage")
             g["fx"].append((w // 2 - 35, int(h * 0.12), now, "OUCH", (80, 80, 255)))
         e["state"], e["st"] = "strike", now
 
@@ -105,6 +109,7 @@ def update_enemy(g, hand, now, w, h):
             e["idx"] += 1
             e["wd"] = max(MIN_WD, e["base_wd"] * COMBO_WD_MULT)
             e["chain"] = True
+            set_facing(e, now)
             e["state"], e["st"] = "windup", now
         elif e["all_blocked"]:
             e["state"], e["st"] = "stagger", now

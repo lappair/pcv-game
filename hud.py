@@ -32,7 +32,6 @@ def _draw_block_zone(out, g, hand, now, w, h):
 
 
 def _apply_shake(out, g, now):
-    """Geser seluruh lapisan dunia secara acak; amplitudo turun kuadratik ke 0."""
     age = now - g["shake_t"]
     if age < 0 or age >= SHAKE_DUR:
         return out

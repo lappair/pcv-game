@@ -1,5 +1,28 @@
 """Semua angka tuning ada di sini. File ini tidak meng-import apa-apa."""
 
+# ---------- kalibrasi warna ----------
+H_CENTER_DEFAULT = 0
+H_TOL_DEFAULT = 10
+CAL_BOX = 0.18
+CAL_HOLD = 1.5
+CAL_COVER = 0.60
+CAL_MIN_S = 50
+CAL_MIN_V = 40
+CAL_H_MARGIN = 4
+CAL_H_MIN = 6
+CAL_H_MAX = 18
+CAL_DS = 70
+CAL_DV = 80
+CAL_S_FLOOR = 40
+CAL_V_FLOOR = 30
+
+# ---------- musuh: sprite (gambar sendiri) ----------
+SPRITE_HELMET = "skeleton_helmet.png"
+SPRITE_AXIS_X = 0.5215
+SPRITE_HEAD_TOP = 0.1296
+SPRITE_FEET_Y = 0.9596
+FACE_TURN_DUR = 0.15
+SPRITE_DY = 0.5
 # ---------- game ----------
 TOTAL_STAGES = 5
 MAX_HP = 100
@@ -19,7 +42,7 @@ HIT_COOLDOWN = 0.5      # jeda antar tebasan yang menyentuh musuh
 BLOCK_GRACE = 0.2       # detik, toleransi latensi untuk block
 
 # ---------- zona block (lingkaran) ----------
-BLOCK_R = 0.12          # radius, fraksi tinggi layar
+BLOCK_R = 0.14          # radius, fraksi tinggi layar
 ZONE_C = {"L": (0.15, 0.55),    # pusat zona, fraksi (w, h)
           "R": (0.85, 0.55),
           "T": (0.50, 0.12)}
@@ -63,8 +86,8 @@ STAGGER_DUR = 1.0
 # armor: None polos, "H" helm, "V" chestplate, "B" boss (berganti-ganti)
 STAGES = [
     (None, 6, 0.80, 2, 3),
-    ("H", 8, 0.70, 2, 3),
-    ("V", 8, 0.60, 2, 4),
-    ("H", 10, 0.55, 3, 4),
-    ("B", 14, 0.50, 3, 4),
+    ("H", 8, 0.8, 2, 3),
+    ("V", 8, 0.8, 2, 4),
+    ("H", 10, 0.8, 3, 4),
+    ("B", 14, 0.8, 3, 4),
 ]

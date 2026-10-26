@@ -1,14 +1,14 @@
-"""Deteksi warna merah, smoothing, trail, dan deteksi tebasan."""
+"""Deteksi warna (bisa dikalibrasi), smoothing, trail, dan deteksi tebasan."""
 import cv2
 import numpy as np
 from collections import deque
 
 from config import (TRAIL_LEN, MIN_AREA, SMOOTH, SLASH_SPEED,
-                    S_MIN_DEFAULT, V_MIN_DEFAULT)
+                    S_MIN_DEFAULT, V_MIN_DEFAULT, H_CENTER_DEFAULT, H_TOL_DEFAULT)
 
 
 class Hand:
-    """Hasil satu frame: posisi tangan dan tebasan (kalau ada)."""
+    """Hasil satu frame: posisi benda dan tebasan (kalau ada)."""
 
     def __init__(self):
         self.detected = False
@@ -29,13 +29,31 @@ def seg_dist(c, p0, p1):
     return float(np.linalg.norm(c - (p0 + t * d)))
 
 
-class RedTracker:
+def hue_mask(hsv, hc, tol, smin, vmin):
+    """Piksel dengan hue dalam hc +- tol (melingkar: 0 dan 179 bersebelahan), S >= smin, V >= vmin."""
+    lo, hi = hc - tol, hc + tol
+
+    def rng(a, b):
+        return cv2.inRange(hsv, np.array([a, smin, vmin]), np.array([b, 255, 255]))
+
+    if lo < 0:                      # melewati batas bawah: [0, hi] dan [180+lo, 179]
+        return cv2.bitwise_or(rng(0, hi), rng(180 + lo, 179))
+    if hi > 179:                    # melewati batas atas: [lo, 179] dan [0, hi-180]
+        return cv2.bitwise_or(rng(lo, 179), rng(0, hi - 180))
+    return rng(lo, hi)
+
+
+class ColorTracker:
     def __init__(self):
         self.kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
         cv2.namedWindow("mask")
+        cv2.createTrackbar("H_center", "mask", H_CENTER_DEFAULT, 179, lambda x: None)
+        cv2.createTrackbar("H_tol", "mask", H_TOL_DEFAULT, 40, lambda x: None)
         cv2.createTrackbar("S_min", "mask", S_MIN_DEFAULT, 255, lambda x: None)
         cv2.createTrackbar("V_min", "mask", V_MIN_DEFAULT, 255, lambda x: None)
         self.trail = deque(maxlen=TRAIL_LEN)
+        self.mask = None        # mask frame terakhir (untuk layar kalibrasi)
+        self.last_hsv = None    # HSV frame terakhir (untuk mengambil sampel warna)
         self.reset()
 
     def reset(self):
@@ -44,20 +62,30 @@ class RedTracker:
         self.prev_pos = None
         self.prev_t = None
 
+    def params(self):
+        return (cv2.getTrackbarPos("H_center", "mask"), cv2.getTrackbarPos("H_tol", "mask"),
+                cv2.getTrackbarPos("S_min", "mask"), cv2.getTrackbarPos("V_min", "mask"))
+
+    def set_calibration(self, c):
+        """c: dict h_center, h_tol, s_min, v_min. Trackbar tetap bisa digeser manual sesudahnya."""
+        for name, key in (("H_center", "h_center"), ("H_tol", "h_tol"),
+                          ("S_min", "s_min"), ("V_min", "v_min")):
+            cv2.setTrackbarPos(name, "mask", int(c[key]))
+        self.reset()
+
     def _mask(self, frame):
         blur = cv2.GaussianBlur(frame, (5, 5), 0)
         hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
-        s = cv2.getTrackbarPos("S_min", "mask")
-        v = cv2.getTrackbarPos("V_min", "mask")
-        m1 = cv2.inRange(hsv, np.array([0, s, v]), np.array([10, 255, 255]))
-        m2 = cv2.inRange(hsv, np.array([170, s, v]), np.array([180, 255, 255]))
-        mask = cv2.bitwise_or(m1, m2)
+        self.last_hsv = hsv
+        hc, tol, s, v = self.params()
+        mask = hue_mask(hsv, hc, tol, s, v)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, self.kernel, iterations=2)
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, self.kernel, iterations=2)
         return mask
 
     def update(self, frame, now):
         mask = self._mask(frame)
+        self.mask = mask
         cv2.imshow("mask", mask)
 
         hand = Hand()
@@ -86,3 +114,6 @@ class RedTracker:
         self.prev_t = now
         self.trail.append((int(self.pos[0]), int(self.pos[1])) if hand.detected else None)
         return hand
+
+
+RedTracker = ColorTracker       # nama lama, supaya kode yang masih memakainya tidak rusak

@@ -1,6 +1,6 @@
 """Menu utama dan layar cara bermain.
 Dikontrol dengan tangan: tahan benda merah di dalam tombol selama MENU_DWELL detik.
-Cadangan keyboard: SPACE/ENTER = start, H = cara main, B = kembali, Q = keluar."""
+Cadangan keyboard: SPACE/ENTER = start, H = cara main, C = kalibrasi, B = kembali, Q = keluar."""
 import cv2
 
 from background import make_background
@@ -9,11 +9,11 @@ from hud import draw_trail
 
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 
-MAIN_BUTTONS = [("START", "start"), ("HOW TO PLAY", "howto"), ("QUIT", "quit")]
+MAIN_BUTTONS = [("START", "start"), ("HOW TO PLAY", "howto"), ("CALIBRATE", "calibrate"), ("QUIT", "quit")]
 BACK_BUTTONS = [("BACK", "back")]
 
 HOWTO_LINES = [
-    "TEBAS: gerakkan benda merah cepat melewati musuh",
+    "TEBAS: gerakkan benda cepat melewati musuh",
     "HELM (panah kiri-kanan): tebas horizontal",
     "CHESTPLATE (panah atas-bawah): tebas vertikal",
     "BLOCK: saat musuh angkat pedang, sentuh lingkaran yang menyala",
@@ -37,6 +37,7 @@ class Menu:
         self.prog = 0.0             # 0..1
         self.last_t = now
         self.lock_until = now + 0.6  # abaikan tangan sebentar setelah ganti layar
+        self.armed = False           # tombol baru aktif setelah benda keluar dari semua tombol dulu
 
     # ---------- layout ----------
     def _buttons(self):
@@ -45,7 +46,7 @@ class Menu:
     def _rects(self, w, h):
         bw, bh = int(w * 0.42), int(h * 0.11)
         x1 = (w - bw) // 2
-        ycs = [0.46, 0.62, 0.78] if self.screen == "main" else [0.88]
+        ycs = [0.42, 0.56, 0.70, 0.84] if self.screen == "main" else [0.88]
         return [(x1, int(h * yc) - bh // 2, x1 + bw, int(h * yc) + bh // 2) for yc in ycs]
 
     # ---------- logika ----------
@@ -55,16 +56,21 @@ class Menu:
                 return "start"
             if key == ord("h"):
                 return "howto"
+            if key == ord("c"):
+                return "calibrate"
         elif key in (ord("b"), 27):
             return "back"
         return None
 
     def _dwell(self, hand, dt, now, w, h):
-        hover = None
-        if hand.detected and now >= self.lock_until:
+        geo = None                   # tombol yang secara geometris sedang disentuh
+        if hand.detected:
             for i, (x1, y1, x2, y2) in enumerate(self._rects(w, h)):
                 if x1 <= hand.pos[0] <= x2 and y1 <= hand.pos[1] <= y2:
-                    hover = i
+                    geo = i
+        if geo is None:
+            self.armed = True
+        hover = geo if (self.armed and now >= self.lock_until) else None
         if hover is not None and hover == self.target:
             self.prog += dt / MENU_DWELL
             if self.prog >= 1.0:
@@ -78,7 +84,7 @@ class Menu:
         return None
 
     def update(self, hand, now, w, h, key=255):
-        """Mengembalikan "start" atau "quit" kalau dipilih, selain itu None."""
+        """Mengembalikan "start", "calibrate", atau "quit" kalau dipilih, selain itu None."""
         dt = max(0.0, now - self.last_t)
         self.last_t = now
         act = self._key_action(key)
@@ -90,7 +96,7 @@ class Menu:
         elif act == "back":
             self.screen = "main"
             self._reset(now)
-        elif act in ("start", "quit"):
+        elif act in ("start", "calibrate", "quit"):
             return act
         return None
 
@@ -103,9 +109,9 @@ class Menu:
         cx = w // 2
         self._text_center(out, "ESCAPE THE CRYPT", cx + 3, int(h * 0.20) + 3, 1.5 * k, (0, 0, 150), 3)
         self._text_center(out, "ESCAPE THE CRYPT", cx, int(h * 0.20), 1.5 * k, (235, 235, 235), 3)
-        self._text_center(out, "tahan benda merah di tombol selama 1 detik", cx, int(h * 0.29),
+        self._text_center(out, "tahan benda di tombol selama 1 detik", cx, int(h * 0.29),
                           0.55 * k, (200, 200, 200), 1)
-        self._text_center(out, "SPACE = start   H = cara main   Q = keluar", cx, int(h * 0.93),
+        self._text_center(out, "SPACE = start   H = cara main   C = kalibrasi   Q = keluar", cx, int(h * 0.93),
                           0.45 * k, (170, 170, 170), 1)
 
     def _draw_howto(self, out, w, h, k):
@@ -154,6 +160,6 @@ class Menu:
         draw_trail(out, trail, False)
         self._draw_cursor(out, hand)
         if not hand.detected:
-            self._text_center(out, "benda merah tidak terdeteksi (atur S_min / V_min di window mask)",
+            self._text_center(out, "benda tidak terdeteksi (tekan C untuk kalibrasi ulang)",
                               w // 2, h - 10, 0.45 * k, (0, 160, 255), 1)
         return out

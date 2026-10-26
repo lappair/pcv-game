@@ -2,7 +2,8 @@
 import time
 import cv2
 
-from vision import RedTracker
+from vision import ColorTracker
+from calibration import CalibrationScreen, load_calibration
 from game import new_game, step
 from hud import render
 from menu import Menu
@@ -12,9 +13,13 @@ import sound
 def main():
     sound.init()
     cap = cv2.VideoCapture(0)
-    tracker = RedTracker()
+    tracker = ColorTracker()
+    saved = load_calibration()              # warna dari sesi sebelumnya (kalau ada)
+    if saved:
+        tracker.set_calibration(saved)
+    calib = CalibrationScreen(has_saved=bool(saved))
     menu = Menu()
-    scene = "menu"          # "menu" atau "game"
+    scene = "calibrate"     # "calibrate" -> "menu" <-> "game"
     g = None
 
     while True:
@@ -30,11 +35,18 @@ def main():
         now = time.time()
         hand = tracker.update(frame, now)
 
-        if scene == "menu":
+        if scene == "calibrate":
+            if calib.update(tracker, hand, now, w, h, key) in ("done", "skip"):
+                menu.enter(now)
+                scene = "menu"
+        elif scene == "menu":
             act = menu.update(hand, now, w, h, key)
             if act == "quit":
                 break
-            if act == "start":
+            if act == "calibrate":
+                calib.enter(now)
+                scene = "calibrate"
+            elif act == "start":
                 g = new_game(w, h)
                 sound.stop()
                 scene = "game"
@@ -52,7 +64,13 @@ def main():
                 step(g, hand, now, w, h)
                 sound.play_events(g["events"])
 
-        if scene == "menu":
+        # musik menyala di menu dan saat bermain; mati di layar kalibrasi dan saat kalah/menang
+        sound.set_music(scene == "menu" or (scene == "game" and g["state"] not in ("dead", "win")))
+        sound.update()
+
+        if scene == "calibrate":
+            out = calib.render(frame, tracker, hand, now)
+        elif scene == "menu":
             out = menu.render(frame, hand, tracker.trail, now)
         else:
             out = render(frame, g, hand, tracker.trail, now)
